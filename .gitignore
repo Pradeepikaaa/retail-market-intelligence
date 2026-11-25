@@ -1,0 +1,93 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and package/build artifacts
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+build/
+dist/
+site/
+*.egg-info/
+
+# Secrets and local environment configuration
+.env
+.env.*
+!.env.example
+kaggle.json
+credentials.json
+secrets.json
+*.secret
+secrets/
+
+# Local MySQL credentials and keys
+my.cnf
+.my.cnf
+.mylogin.cnf
+*.cnf
+my.ini
+mysql*.ini
+*.pem
+*.key
+
+# Local editor and operating-system files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# Local logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Raw, processed, and external datasets
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/external/*
+!data/external/.gitkeep
+kaggle/
+data/kaggle/
+
+# Common data, database, and model artifact formats
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.jsonl
+*.parquet
+*.feather
+*.arrow
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.db
+*.sqlite
+*.sqlite3
+
+# Archives and compressed data
+*.zip
+*.gz
+*.tar
+*.7z
