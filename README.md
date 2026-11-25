@@ -1,4 +1,6 @@
-# AI-Powered Retail Market Intelligence & Sales Optimisation
+# retail-market-intelligence
+
+## AI-Powered Retail Market Intelligence & Sales Optimisation
 
 A Python project scaffold for retail market analysis, sales optimisation, and
 machine-learning workflows, with MySQL for data storage and Power BI for
