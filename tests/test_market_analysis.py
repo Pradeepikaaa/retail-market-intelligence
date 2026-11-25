@@ -46,6 +46,14 @@ def test_product_recommender_normalizes_product_codes():
     assert set(result["StockCode"]) == {"B", "C"}
 
 
+def test_product_recommender_counts_each_product_once_per_basket():
+    baskets = pd.DataFrame({"Items": ['["A", "A", "B"]', '["A", "B"]']})
+    result = ProductRecommender(baskets).recommend("A")
+    counts = result.set_index("StockCode")["CoOccurrences"]
+    assert counts["B"] == 2
+    assert "A" not in counts.index
+
+
 def test_customer_segmentation_returns_expected_segment_column():
     rfm = pd.DataFrame({
         "Customer ID": range(1, 11),

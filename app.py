@@ -32,7 +32,8 @@ st.set_page_config(
 )
 
 
-@st.cache_data(ttl=3600)
+# Dashboard code only reads these shared frames; avoid copying them per rerun.
+@st.cache_resource(ttl=3600)
 def load_sales() -> pd.DataFrame:
     frame = pd.read_csv(
         PROCESSED_DIR / "eligible_sales.csv",
@@ -42,12 +43,12 @@ def load_sales() -> pd.DataFrame:
     return frame
 
 
-@st.cache_data(ttl=3600)
+@st.cache_resource(ttl=3600)
 def load_rfm() -> pd.DataFrame:
     return pd.read_csv(PROCESSED_DIR / "customer_rfm.csv")
 
 
-@st.cache_data(ttl=3600)
+@st.cache_resource(ttl=3600)
 def load_baskets() -> pd.DataFrame:
     return pd.read_csv(PROCESSED_DIR / "market_basket_transactions.csv")
 
@@ -99,6 +100,7 @@ if not sales_available:
             result = run_pipeline([])
         if result == 0:
             st.cache_data.clear()
+            st.cache_resource.clear()
             st.success("Preprocessing completed. Refresh the page.")
 else:
     if uploaded_datasets is not None:
@@ -108,12 +110,30 @@ else:
         rfm = load_rfm()
         baskets = load_baskets()
 
+    if st.session_state.get("_sales_lookup_source") is not sales:
+        st.session_state["_sales_lookup_source"] = sales
+        st.session_state["_min_date"] = sales["InvoiceDate"].min().date()
+        st.session_state["_max_date"] = sales["InvoiceDate"].max().date()
+        st.session_state["_country_options"] = sorted(
+            str(value) for value in sales["Country"].dropna().unique()
+        )
+        st.session_state["_product_options"] = sorted(
+            sales["StockCode"].dropna().astype(str).unique().tolist()
+        )
+        st.session_state["_product_descriptions"] = (
+            sales[["StockCode", "Description"]]
+            .dropna()
+            .drop_duplicates("StockCode")
+            .astype({"StockCode": "string"})
+            .set_index("StockCode")["Description"]
+        )
+
     st.title("Retail Market Intelligence")
     st.caption("Sales analytics, customer segmentation, and product recommendations")
 
-    min_date = sales["InvoiceDate"].min().date()
-    max_date = sales["InvoiceDate"].max().date()
-    country_options = sorted(str(value) for value in sales["Country"].dropna().unique())
+    min_date = st.session_state["_min_date"]
+    max_date = st.session_state["_max_date"]
+    country_options = st.session_state["_country_options"]
 
     with st.sidebar:
         st.header("Filters")
@@ -135,26 +155,41 @@ else:
     else:
         start_date, end_date = min_date, max_date
 
-    filtered = sales[
-        (sales["InvoiceDate"].dt.date >= start_date)
-        & (sales["InvoiceDate"].dt.date <= end_date)
+    filter_key = (start_date, end_date, tuple(selected_countries))
+    filtered = sales.loc[
+        (sales["InvoiceDate"] >= pd.Timestamp(start_date))
+        & (sales["InvoiceDate"] < pd.Timestamp(end_date) + pd.Timedelta(days=1))
     ]
     if selected_countries:
         filtered = filtered[filtered["Country"].isin(selected_countries)]
+
+    if (
+        st.session_state.get("_overview_sales_source") is not sales
+        or st.session_state.get("_overview_filter_key") != filter_key
+    ):
+        st.session_state["_overview_sales_source"] = sales
+        st.session_state["_overview_filter_key"] = filter_key
+        st.session_state["_overview_cache"] = {
+            "kpis": kpi_summary(filtered),
+            "monthly": monthly_revenue(filtered),
+            "country_revenue": revenue_by_country(filtered),
+            "top_products": top_products(filtered),
+        }
 
     tab_overview, tab_segments, tab_basket, tab_recommendations, tab_operations = st.tabs(
         ["Overview", "Customer Segments", "Market Basket", "Recommendations", "Data Operations"]
     )
 
     with tab_overview:
-        kpis = kpi_summary(filtered)
+        overview = st.session_state["_overview_cache"]
+        kpis = overview["kpis"]
         columns = st.columns(4)
         columns[0].metric("Revenue", format_currency(kpis["revenue"]))
         columns[1].metric("Orders", f"{kpis['orders']:,}")
         columns[2].metric("Customers", f"{kpis['customers']:,}")
         columns[3].metric("Products", f"{kpis['products']:,}")
 
-        monthly = monthly_revenue(filtered)
+        monthly = overview["monthly"]
         if not monthly.empty:
             left, right = st.columns(2)
             with left:
@@ -163,7 +198,7 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
             with right:
                 fig = px.bar(
-                    revenue_by_country(filtered),
+                    overview["country_revenue"],
                     x="Country",
                     y="Revenue",
                     title="Revenue by Country",
@@ -171,7 +206,7 @@ else:
                 fig.update_layout(xaxis_tickangle=-35, yaxis_tickprefix="$")
                 st.plotly_chart(fig, use_container_width=True)
 
-        product_table = top_products(filtered)
+        product_table = overview["top_products"]
         st.subheader("Top Selling Products")
         st.dataframe(product_table, use_container_width=True, hide_index=True)
 
@@ -228,8 +263,11 @@ else:
         st.plotly_chart(fig, use_container_width=True)
 
     with tab_recommendations:
-        recommender = ProductRecommender(baskets)
-        product_options = sorted(sales["StockCode"].dropna().astype(str).unique().tolist())
+        if st.session_state.get("_recommender_basket_source") is not baskets:
+            st.session_state["_recommender_basket_source"] = baskets
+            st.session_state["_product_recommender"] = ProductRecommender(baskets)
+        recommender = st.session_state["_product_recommender"]
+        product_options = st.session_state["_product_options"]
         selected_product = None
         if not product_options:
             st.info("No products are available for recommendations.")
@@ -249,14 +287,9 @@ else:
                 recommendations["CoOccurrences"] = recommendations["BasketCount"]
             else:
                 recommendations["Support"] = recommendations["CoOccurrences"]
-            descriptions = (
-                sales[["StockCode", "Description"]]
-                .dropna()
-                .drop_duplicates("StockCode")
-                .astype({"StockCode": "string"})
-                .set_index("StockCode")["Description"]
+            recommendations["Description"] = recommendations["StockCode"].map(
+                st.session_state["_product_descriptions"]
             )
-            recommendations["Description"] = recommendations["StockCode"].map(descriptions)
             st.dataframe(recommendations, use_container_width=True, hide_index=True)
 
     with tab_operations:
@@ -268,6 +301,7 @@ else:
                     exit_code = run_pipeline([])
                 if exit_code == 0:
                     st.cache_data.clear()
+                    st.cache_resource.clear()
                     st.success("Pipeline completed. Reload the page to use refreshed data.")
                 else:
                     st.error("Pipeline did not complete successfully.")
