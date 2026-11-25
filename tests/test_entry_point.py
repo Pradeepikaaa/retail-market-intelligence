@@ -1,8 +1,8 @@
 import main
 
 
-def test_main_imports_dashboard_inside_streamlit_runtime(monkeypatch):
-    imported = []
+def test_main_runs_dashboard_inside_streamlit_runtime(monkeypatch):
+    executed = []
     cli_calls = []
 
     monkeypatch.setattr(
@@ -10,12 +10,13 @@ def test_main_imports_dashboard_inside_streamlit_runtime(monkeypatch):
         "get_script_run_ctx",
         lambda **kwargs: object(),
     )
-    monkeypatch.setattr(main, "import_module", imported.append)
+    monkeypatch.setattr(main.runpy, "run_path", executed.append)
     monkeypatch.setattr(main.stcli, "main", lambda: cli_calls.append(True))
 
     main.main()
+    main.main()
 
-    assert imported == ["app"]
+    assert executed == [str(main.APP_PATH), str(main.APP_PATH)]
     assert cli_calls == []
 
 
