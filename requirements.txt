@@ -3,6 +3,8 @@ jupyter
 matplotlib
 numpy
 pandas
+openpyxl
+xlrd
 PyMySQL
 python-dotenv
 scikit-learn

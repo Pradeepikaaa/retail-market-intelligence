@@ -4,7 +4,8 @@
 
 A Python project scaffold for retail market analysis, sales optimisation, and
 machine-learning workflows, with MySQL for data storage and Power BI for
-reporting. No datasets, trained models, or analysis pipeline are included yet.
+reporting. The repository includes a configurable data preprocessing pipeline;
+raw datasets and trained models are kept out of version control.
 
 ## Technology
 
@@ -70,8 +71,52 @@ commit `.env` or put credentials in source files. The raw, processed, and
 external data directories are intentionally excluded from Git; keep large or
 sensitive data out of version control.
 
+## Phase 2: data preprocessing
+
+Extract supported CSV, XLS, and XLSX files from `data/raw/archive.zip` with:
+
+```powershell
+python -m src.data.extract_data --overwrite
+```
+
+Run the preprocessing pipeline against the extracted dataset files:
+
+```powershell
+python -m src.pipeline.data_pipeline
+```
+
+The pipeline accepts `--input`, `--output-dir`, `--snapshot-date`, and
+`--cancellation-prefix` options. Its default input is
+`data/raw/extracted/`; the input directory must contain exactly one dataset
+file. The default RFM snapshot is one day after the latest eligible sale.
+
+Preprocessing rules:
+
+- Rows missing an invoice, product code, numeric quantity or unit price, or
+  parseable transaction date are removed.
+- `Price` is standardized as `UnitPrice`; `Revenue` is `Quantity * UnitPrice`.
+  Parsed `InvoiceDate` also provides `InvoiceMonth`, `InvoiceYear`,
+  `InvoiceDay`, and `InvoiceHour`.
+- Product codes and descriptions are trimmed and uppercased; description
+  whitespace is collapsed. Missing descriptions use the most frequent
+  description for that product code, with `UNKNOWN PRODUCT` as the fallback.
+- Exact duplicate rows are removed after standardization. Rows for the same
+  invoice and product are retained when any source value differs.
+- Invoice IDs beginning with the configured cancellation prefix are written
+  to `cancellations.csv`. Negative-quantity non-cancellation records are
+  written separately to `returns.csv`.
+- Eligible sales require a non-cancellation invoice, positive quantity,
+  positive unit price, and positive revenue. Missing customer IDs are retained
+  in transaction outputs but excluded from the customer-level RFM output.
+
+The pipeline writes `cleaned_transactions.csv`, `cancellations.csv`,
+`returns.csv`, `eligible_sales.csv`, `market_basket_transactions.csv` (one
+row per invoice with a JSON list of product codes), and `customer_rfm.csv` to
+`data/processed/`. The raw archive and processed datasets remain ignored by
+Git.
+
 ## Current status
 
-This repository contains the initial project structure only. Add approved
-retail data sources and implement the pipeline before running analyses. Running
-`python main.py` confirms the scaffold is present; it does not perform analysis.
+Phase 2 extraction, validation, and preprocessing are implemented. The
+pipeline produces analysis-ready files; modeling and MySQL integration remain
+separate later phases.
