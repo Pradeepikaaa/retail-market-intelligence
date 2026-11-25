@@ -60,12 +60,12 @@ def format_currency(value: float) -> str:
     return f"${value:,.2f}"
 
 
-uploaded_data = st.session_state.get("processed_uploads")
+uploaded_datasets = st.session_state.get("processed_upload_datasets")
 local_data_available = all(
     (PROCESSED_DIR / filename).is_file()
     for filename in REQUIRED_UPLOADS
 )
-sales_available = local_data_available or uploaded_data is not None
+sales_available = local_data_available or uploaded_datasets is not None
 if not sales_available:
     st.title("Retail Market Intelligence")
     st.warning("Processed data was not found in this deployment.")
@@ -86,11 +86,11 @@ if not sales_available:
             st.info("Still needed: " + ", ".join(missing_uploads))
         else:
             try:
-                load_uploaded_datasets(upload_map)
+                loaded_datasets = load_uploaded_datasets(upload_map)
             except (ValueError, pd.errors.ParserError, KeyError) as exc:
                 st.error(f"Could not load the uploaded datasets: {exc}")
             else:
-                st.session_state["processed_uploads"] = upload_map
+                st.session_state["processed_upload_datasets"] = loaded_datasets
                 st.rerun()
     if (PROJECT_ROOT / "data" / "raw" / "archive.zip").is_file() and st.button(
         "Run preprocessing pipeline"
@@ -101,8 +101,8 @@ if not sales_available:
             st.cache_data.clear()
             st.success("Preprocessing completed. Refresh the page.")
 else:
-    if uploaded_data is not None:
-        sales, rfm, baskets = load_uploaded_datasets(uploaded_data)
+    if uploaded_datasets is not None:
+        sales, rfm, baskets = uploaded_datasets
     else:
         sales = load_sales()
         rfm = load_rfm()
