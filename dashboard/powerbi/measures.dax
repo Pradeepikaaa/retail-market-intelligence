@@ -1,0 +1,27 @@
+Total Sales Revenue =
+CALCULATE (
+    SUM ( sales_transactions[revenue] ),
+    sales_transactions[transaction_type] = "sale"
+)
+
+Sales Orders =
+CALCULATE (
+    DISTINCTCOUNT ( sales_transactions[invoice_id] ),
+    sales_transactions[transaction_type] = "sale"
+)
+
+Sales Units =
+CALCULATE (
+    SUM ( sales_transactions[quantity] ),
+    sales_transactions[transaction_type] = "sale"
+)
+
+Identified Customers =
+CALCULATE (
+    DISTINCTCOUNT ( sales_transactions[customer_id] ),
+    sales_transactions[transaction_type] = "sale",
+    NOT ISBLANK ( sales_transactions[customer_id] )
+)
+
+Average Order Value =
+DIVIDE ( [Total Sales Revenue], [Sales Orders] )

@@ -117,6 +117,95 @@ Git.
 
 ## Current status
 
-Phase 2 extraction, validation, and preprocessing are implemented. The
-pipeline produces analysis-ready files; modeling and MySQL integration remain
-separate later phases.
+Phase 2 extraction, validation, preprocessing, Phase 3 MySQL integration,
+customer segmentation, and the Streamlit frontend are implemented.
+
+## Phase 3: MySQL integration
+
+Install and start MySQL Community Server before running these commands;
+MySQL Workbench is an optional graphical client.
+
+Install the requirements, then fill in `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_USER`, and `DB_PASSWORD` in the local `.env` file. `.env` is ignored by Git;
+never put database credentials in source code or commit them. The default
+database name is `retail_intelligence`. Create it once in MySQL Workbench if it
+does not exist:
+
+```sql
+CREATE DATABASE IF NOT EXISTS retail_intelligence;
+```
+
+Test the connection and load the processed transactions from PowerShell in the
+project directory:
+
+```powershell
+python -m src.database.connection
+python -m src.database.load_to_mysql
+```
+
+The loader creates the `customers`, `products`, `invoices`, and
+`sales_transactions` tables, then upserts records in one transaction. A stable
+SHA-256 source key prevents the same cleaned transaction from being inserted
+again when a load is rerun. Sales, returns, cancellations, and other cleaned
+records are preserved; revenue reports filter to eligible `sale` records.
+Product categories are not added because they are not present in the source.
+The loader chooses a product's most frequent description, with a lexical
+tie-break, and uses the earliest line date as an invoice's header date. The
+original line date and description remain on each sales transaction.
+
+In MySQL Workbench, connect to the configured server, select the
+`retail_intelligence` schema, and refresh the **Schemas** panel to inspect the
+tables. The five analytics queries are available as
+`ANALYTICS_QUERIES` in `src/database/load_to_mysql.py`.
+
+## Streamlit dashboard
+
+Start the frontend from the project directory:
+
+```powershell
+python -m streamlit run app.py
+```
+
+Or use the project entry point:
+
+```powershell
+python main.py
+```
+
+The dashboard provides:
+
+- revenue, order, customer, and product KPIs
+- monthly revenue and country analysis
+- top-product rankings
+- RFM customer segmentation with K-Means
+- basket-size analysis
+- product co-purchase recommendations
+- a button to rerun the preprocessing pipeline
+- MySQL connection testing and data loading controls
+
+## MySQL setup
+
+The local server must be running before using the MySQL commands. Confirm the
+connection and load all processed tables with:
+
+```powershell
+python -m src.database.connection
+python -m src.database.load_to_mysql
+```
+
+The database contains `customers`, `products`, `invoices`, and
+`sales_transactions`. The loader is idempotent and uses a stable source key for
+transaction deduplication.
+
+## Power BI
+
+The CSV files in `data/processed/` can be loaded directly into Power BI Desktop.
+The project includes a setup guide at
+`dashboard/powerbi/README.md` and the five SQL analytics queries in
+`src/database/load_to_mysql.py`.
+
+Power BI measures are provided in `dashboard/powerbi/measures.dax`. A native
+`.pbix` report must be created and saved using Power BI Desktop.
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for Streamlit Community Cloud setup and
+the processed-data upload workflow.

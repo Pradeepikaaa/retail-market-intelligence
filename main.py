@@ -1,9 +1,12 @@
-"""Entry point for the retail market intelligence project."""
+"""Streamlit entry point for the retail market intelligence project."""
+
+from streamlit.web import cli as stcli
+import sys
 
 
 def main() -> None:
-    """Report scaffold status until the project pipeline is implemented."""
-    print("Project scaffold is ready; no analysis pipeline has been configured yet.")
+    sys.argv = ["streamlit", "run", "app.py"]
+    stcli.main()
 
 
 if __name__ == "__main__":

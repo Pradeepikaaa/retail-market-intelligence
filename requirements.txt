@@ -10,3 +10,6 @@ python-dotenv
 scikit-learn
 seaborn
 SQLAlchemy
+streamlit
+plotly
+pytest
